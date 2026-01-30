@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bengaluru House Price Predictor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            padding: 40px;
+        }
+        .box {
+            background: white;
+            padding: 20px;
+            width: 420px;
+            margin: auto;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        h2 {
+            text-align: center;
+        }
+        .result {
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h2>Bengaluru House Price Predictor</h2>
+
+    <form action="/predict" method="post">
+        <select name="location" required>
+    {% for loc in locations %}
+        <option value="{{ loc }}">{{ loc }}</option>
+    {% endfor %}
+</select>
+
+        <input type="number" name="total_sqft" placeholder="Total Sqft" required>
+        <input type="number" name="bath" placeholder="Bathrooms" required>
+        <input type="number" name="bhk" placeholder="BHK" required>
+
+        <button type="submit">Predict Price</button>
+    </form>
+
+    {% if prediction %}
+        <div class="result">
+            Estimated Price: ₹ {{ prediction }} Lakhs
+        </div>
+    {% endif %}
+</div>
+
+</body>
+</html>
