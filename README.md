@@ -62,7 +62,7 @@ The goal of this project is to build a production-style machine learning applica
 
 ## Project Structure
 
-bengaluru-house-price-app/
+```
 bengaluru-house-price-app/
 │
 ├── app.py
@@ -72,3 +72,4 @@ bengaluru-house-price-app/
 ├── README.md
 └── templates/
     └── index.html
+```
