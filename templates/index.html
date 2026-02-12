@@ -78,13 +78,13 @@ button{
 </select>
 
 <label>Total Square Feet</label>
-<input type="number" name="total_sqft" required>
+<input type="number" name="total_sqft" min="300" step="1" required>
 
 <label>Bathrooms</label>
-<input type="number" name="bath" required>
+<input type="number" name="bath" min="1" step="1" required>
 
 <label>BHK</label>
-<input type="number" name="bhk" required>
+<input type="number" name="bhk" min="1" step="1" required>
 
 <button type="submit">Predict Price</button>
 
@@ -98,5 +98,42 @@ Estimated Price: ₹ {{ prediction }} Lakhs
 
 </div>
 
+<script>
+
+function toggleTheme(){
+    document.body.classList.toggle("dark");
+    localStorage.setItem(
+        "theme",
+        document.body.classList.contains("dark") ? "dark" : "light"
+    );
+}
+
+if(localStorage.getItem("theme") === "dark"){
+    document.body.classList.add("dark");
+}
+
+// FORM VALIDATION 
+
+const form = document.getElementById("predictForm");
+
+form.addEventListener("submit", function(e){
+
+    const sqft = parseFloat(document.querySelector("[name='total_sqft']").value);
+    const bath = parseInt(document.querySelector("[name='bath']").value);
+    const bhk  = parseInt(document.querySelector("[name='bhk']").value);
+
+    if(sqft <= 0 || bath <= 0 || bhk <= 0){
+        alert("Values must be positive numbers.");
+        e.preventDefault();
+        return;
+    }
+
+});
+
+</script>
+
+
 </body>
 </html>
+
+

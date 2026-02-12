@@ -75,6 +75,15 @@ def predict_form():
     bath = int(request.form["bath"])
     bhk = int(request.form["bhk"])
 
+    # Backened validation
+
+    if total_sqft <=0 or bath <=0 or bhk <=0:
+        return render_template(
+            "index.html",
+            locations=known_locations,
+            prediction="Invalid input values"
+        )
+
     # Handle unknown locations
     if location not in known_locations:
         location = "other"
@@ -126,6 +135,14 @@ def predict_api():
     total_sqft = float(data["total_sqft"])
     bath = int(data["bath"])
     bhk = int(data["bhk"])
+
+    if total_sqft <= 0 or bath <= 0 or bhk <= 0:
+        return jsonify({
+        "error": "Invalid input",
+        "message": "Values must be positive numbers"
+    }), 400
+    
+
 
     if location not in known_locations:
         location = "other"
