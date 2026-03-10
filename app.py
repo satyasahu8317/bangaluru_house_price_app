@@ -2,54 +2,44 @@ from flask import Flask, request, render_template, jsonify
 import pickle
 import pandas as pd
 from datetime import datetime
+import os
+import traceback
 
 # Rate limiting
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-
 # Flask App Setup
-
 app = Flask(__name__)
-
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Load Trained Model
+try:
+    model = pickle.load(open("RidgeModel.pkl", "rb"))
+except FileNotFoundError:
+    raise RuntimeError("RidgeModel.pkl not found. Train and save your model first.")
 
-
-model = pickle.load(open("RidgeModel.pkl", "rb"))
+# FIX Bug 2: Debug print to verify pipeline step names (remove after confirming)
+print("Pipeline steps:", list(model.named_steps.keys()))
 
 # Extract known locations from OneHotEncoder
-encoder = model.named_steps['columntransformer'] \
-               .named_transformers_['onehotencoder']
+encoder = model.named_steps['columntransformer'].named_transformers_['onehotencoder']
 known_locations = list(encoder.categories_[0])
 
-
 # API Key Configuration
-
-
 VALID_API_KEYS = {
     "demo-key-123": "public-demo-user",
     "client-key-456": "mobile-app-client"
 }
 
-
 # Rate Limiter Setup
-# Limits per API key if provided,
-# otherwise fallback to IP address
-
-
 limiter = Limiter(
-    key_func=lambda: (
-        request.get_json().get("api_key")
-        if request.is_json and request.get_json()
-        else get_remote_address()
-    ),
+    key_func=lambda: ((request.get_json(silent=True) or {}).get("api_key") or get_remote_address()),
     app=app,
     default_limits=["100 per day", "50 per hour"]
 )
 
 # Request Logging
-
 @app.before_request
 def log_request():
     print({
@@ -59,32 +49,40 @@ def log_request():
         "method": request.method
     })
 
+# FIX Bug 1: Use traceback in 500 error handler
+@app.errorhandler(500)
+def internal_error(e):
+    return jsonify({
+        "error": "Internal server error",
+        "message": traceback.format_exc()
+    }), 500
 
 # FRONTEND ROUTES
-
-
 @app.route("/")
 def home():
     return render_template("index.html", locations=known_locations)
 
 @app.route("/predict", methods=["POST"])
 def predict_form():
-
-    location = request.form["location"].strip()
-    total_sqft = float(request.form["total_sqft"])
-    bath = int(request.form["bath"])
-    bhk = int(request.form["bhk"])
-
-    # Backened validation
-
-    if total_sqft <=0 or bath <=0 or bhk <=0:
+    try:
+        location = request.form["location"].strip()
+        total_sqft = float(request.form["total_sqft"])
+        bath = int(request.form["bath"])
+        bhk = int(request.form["bhk"])
+    except ValueError:
         return render_template(
             "index.html",
             locations=known_locations,
-            prediction="Invalid input values"
+            error="Please enter valid numeric values."
         )
 
-    # Handle unknown locations
+    if total_sqft <= 0 or bath <= 0 or bhk <= 0:
+        return render_template(
+            "index.html",
+            locations=known_locations,
+            error="Invalid input values. All values must be positive."
+        )
+
     if location not in known_locations:
         location = "other"
 
@@ -103,20 +101,19 @@ def predict_form():
         locations=known_locations
     )
 
-
 # REST API ROUTE
-
-
 @app.route("/api/predict", methods=["POST"])
 @limiter.limit("20 per minute")
 def predict_api():
+    data = request.get_json(silent=True)
 
-    data = request.get_json()
-
-    #  API Key Validation 
+    if not data:
+        return jsonify({
+            "error": "Invalid request",
+            "message": "Request body must be valid JSON"
+        }), 400
 
     api_key = data.get("api_key")
-
     if not api_key or api_key not in VALID_API_KEYS:
         return jsonify({
             "error": "Unauthorized access",
@@ -124,25 +121,28 @@ def predict_api():
         }), 401
 
     required_fields = ["location", "total_sqft", "bath", "bhk"]
-
     for field in required_fields:
         if field not in data:
             return jsonify({
                 "error": f"Missing field: {field}"
             }), 400
 
-    location = data["location"].strip()
-    total_sqft = float(data["total_sqft"])
-    bath = int(data["bath"])
-    bhk = int(data["bhk"])
+    try:
+        location = data["location"].strip()
+        total_sqft = float(data["total_sqft"])
+        bath = int(data["bath"])
+        bhk = int(data["bhk"])
+    except (ValueError, TypeError):
+        return jsonify({
+            "error": "Invalid input",
+            "message": "total_sqft, bath, and bhk must be valid numbers"
+        }), 400
 
     if total_sqft <= 0 or bath <= 0 or bhk <= 0:
         return jsonify({
-        "error": "Invalid input",
-        "message": "Values must be positive numbers"
-    }), 400
-    
-
+            "error": "Invalid input",
+            "message": "Values must be positive numbers"
+        }), 400
 
     if location not in known_locations:
         location = "other"
@@ -155,7 +155,6 @@ def predict_api():
     }])
 
     prediction = model.predict(input_df)[0]
-
     print(f"API used by: {VALID_API_KEYS[api_key]} from {request.remote_addr}")
 
     return jsonify({
@@ -163,10 +162,7 @@ def predict_api():
         "predicted_price_lakh": round(prediction, 2)
     })
 
-
 # Custom Rate Limit Error
-
-
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return jsonify({
@@ -174,9 +170,6 @@ def ratelimit_handler(e):
         "message": "Too many requests. Please wait before trying again."
     }), 429
 
-
-# Run App
-
-
+# FIX Bug 3: debug=True while developing
 if __name__ == "__main__":
     app.run(debug=True)
