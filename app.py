@@ -173,3 +173,8 @@ def ratelimit_handler(e):
 # FIX Bug 3: debug=True while developing
 if __name__ == "__main__":
     app.run(debug=True)
+
+#/health endpoin
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok", "model": "loaded"})
